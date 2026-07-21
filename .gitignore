@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+backend/.env
+
+# Node
+node_modules/
+.next/
+frontend/.env.local
+
+# User uploads
+sample-tenders/*.pdf
+!sample-tenders/.gitkeep
+
+# TypeScript
+*.tsbuildinfo

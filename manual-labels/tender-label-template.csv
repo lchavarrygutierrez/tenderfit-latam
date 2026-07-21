@@ -1,0 +1,2 @@
+tender_id,tender_name,entity,procedure_type,estimated_value,currency,deadline,location,requirement_category,requirement_text,mandatory,company_status,disqualifier,source_page,source_quote,human_recommendation,human_reason,reviewer,review_date
+sample-001,,,,,,,,experience,,true,unclear,false,,,,,,
