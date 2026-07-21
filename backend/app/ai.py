@@ -119,6 +119,19 @@ def merge_chunk_extractions(chunks: list[ChunkExtraction]) -> ChunkExtraction:
     )
 
 
+def _language_instruction(language: str) -> str:
+    if language == "es":
+        return (
+            "Write every user-facing narrative field in clear Latin American Spanish. "
+            "Translate tender names, requirement names, risks, reasons, summaries, and checklist items when helpful, "
+            "but preserve every citation quote verbatim in its original language."
+        )
+    return (
+        "Write every user-facing narrative field in clear English. Translate tender names, requirement names, risks, "
+        "reasons, summaries, and checklist items when helpful, but preserve every citation quote verbatim in its original language."
+    )
+
+
 class OpenAITenderAnalyzer:
     def __init__(self, settings: Settings):
         if not settings.openai_api_key:
@@ -155,8 +168,10 @@ class OpenAITenderAnalyzer:
         profile: CompanyProfile,
         pages_analyzed: int,
         warnings: list[str],
+        language: str,
     ) -> TenderAnalysis:
         payload = {
+            "output_language": language,
             "company_profile": profile.model_dump(),
             "extracted_tender_evidence": extraction.model_dump(),
             "pages_analyzed": pages_analyzed,
@@ -166,7 +181,11 @@ class OpenAITenderAnalyzer:
         try:
             response = await self.client.responses.parse(
                 model=self.model,
-                instructions=FINAL_ANALYSIS_SYSTEM_PROMPT,
+                instructions=(
+                    FINAL_ANALYSIS_SYSTEM_PROMPT
+                    + "\n\nOutput language instruction:\n"
+                    + _language_instruction(language)
+                ),
                 input=[
                     {
                         "role": "user",
@@ -248,31 +267,60 @@ class MockTenderAnalyzer:
         profile: CompanyProfile,
         pages_analyzed: int,
         warnings: list[str],
+        language: str,
     ) -> TenderAnalysis:
         experience_text = _normalized(profile.previous_contract_experience)
         certification_text = _normalized(profile.certifications)
         has_experience = len(experience_text) > 20
         has_certifications = len(certification_text) > 5
+        spanish = language == "es"
+
+        experience_requirement = (
+            "Verificar la experiencia relevante documentada"
+            if spanish
+            else "Verify documented relevant experience"
+        )
+        documents_requirement = (
+            "Verificar todas las declaraciones y formularios requeridos"
+            if spanish
+            else "Verify all required declarations and forms"
+        )
 
         statuses = [
             RequirementAssessment(
-                requirement=extraction.requirements[0].name,
+                requirement=experience_requirement,
                 category="experience",
                 mandatory=True,
-                status=(RequirementStatus.MET if has_experience else RequirementStatus.UNCLEAR),
-                reason=(
-                    "The profile describes prior contract experience. Verify that it meets the tender's exact similarity and value thresholds."
+                status=(
+                    RequirementStatus.MET
                     if has_experience
-                    else "The company profile does not contain enough prior-contract detail."
+                    else RequirementStatus.UNCLEAR
+                ),
+                reason=(
+                    (
+                        "El perfil describe experiencia contractual previa. Verifica que cumpla los umbrales exactos de similitud y monto establecidos en las bases."
+                        if has_experience
+                        else "El perfil de la empresa no contiene suficiente detalle sobre contratos anteriores."
+                    )
+                    if spanish
+                    else (
+                        "The profile describes prior contract experience. Verify that it meets the tender's exact similarity and value thresholds."
+                        if has_experience
+                        else "The company profile does not contain enough prior-contract detail."
+                    )
                 ),
                 citations=extraction.requirements[0].citations,
             ),
             RequirementAssessment(
-                requirement=extraction.requirements[1].name,
+                requirement=documents_requirement,
                 category="documents",
                 mandatory=True,
                 status=RequirementStatus.UNCLEAR,
-                reason="The uploaded company profile does not include a document inventory.",
+                reason=(
+                    "El perfil de la empresa no incluye un inventario de documentos disponibles."
+                    if spanish
+                    else "The uploaded company profile does not include a document inventory."
+                ),
                 citations=extraction.requirements[1].citations,
             ),
         ]
@@ -281,38 +329,71 @@ class MockTenderAnalyzer:
         warning_list = list(warnings)
         warning_list.insert(
             0,
-            "Mock mode is active. The displayed requirements are placeholders, not a real tender interpretation.",
+            (
+                "El modo de prueba está activo. Los requisitos mostrados son ejemplos y no una interpretación real de las bases."
+                if spanish
+                else "Mock mode is active. The displayed requirements are placeholders, not a real tender interpretation."
+            ),
+        )
+
+        risk = ExtractedRisk(
+            risk=(
+                "Puede faltar un documento obligatorio o estar incompleto."
+                if spanish
+                else "A mandatory document may be missing or incomplete."
+            ),
+            severity="high",
+            citations=extraction.disqualification_risks[0].citations,
         )
 
         return TenderAnalysis(
-            tender_name=extraction.tender_name or "Mock tender analysis",
-            entity=extraction.entity or "Entity to be verified",
+            tender_name=(
+                "Análisis de oportunidad en modo de prueba"
+                if spanish
+                else "Mock tender analysis"
+            ),
+            entity="Entidad por verificar" if spanish else "Entity to be verified",
             summary=(
-                "This report proves the upload and scoring workflow. Enable real AI mode "
-                "before using it for an actual procurement decision."
+                "Este informe demuestra el flujo de carga y puntuación. Activa el modo de IA real antes de usarlo para tomar una decisión de postulación."
+                if spanish
+                else "This report proves the upload and scoring workflow. Enable real AI mode before using it for an actual procurement decision."
             ),
             estimated_value=extraction.estimated_value,
             currency=extraction.currency,
             fit_score=min(score, 79),
             recommendation=Recommendation.REVIEW,
             recommendation_reason=(
-                "The company may be a plausible fit, but the application must remain under review until real evidence extraction is enabled."
+                "La empresa podría ser compatible, pero la oportunidad debe mantenerse en revisión hasta activar la extracción real de evidencia."
+                if spanish
+                else "The company may be a plausible fit, but the application must remain under review until real evidence extraction is enabled."
             ),
             requirements=statuses,
-            risks=extraction.disqualification_risks,
+            risks=[risk],
             checklist=[
                 ChecklistItem(
-                    item="Enable real AI mode and rerun the analysis.",
+                    item=(
+                        "Activar el modo de IA real y ejecutar nuevamente el análisis."
+                        if spanish
+                        else "Enable real AI mode and rerun the analysis."
+                    ),
                     priority="high",
                     citations=[],
                 ),
                 ChecklistItem(
-                    item="Confirm similar-contract thresholds and prepare supporting evidence.",
+                    item=(
+                        "Confirmar los umbrales de contratos similares y preparar la evidencia de respaldo."
+                        if spanish
+                        else "Confirm similar-contract thresholds and prepare supporting evidence."
+                    ),
                     priority="high",
                     citations=extraction.requirements[0].citations,
                 ),
                 ChecklistItem(
-                    item="Create an inventory of all declarations, forms, and certificates.",
+                    item=(
+                        "Crear un inventario de todas las declaraciones, formularios y certificados."
+                        if spanish
+                        else "Create an inventory of all declarations, forms, and certificates."
+                    ),
                     priority="medium",
                     citations=extraction.requirements[1].citations,
                 ),

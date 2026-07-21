@@ -3,12 +3,13 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "TenderFit LATAM",
-  description: "AI-assisted go/no-go analysis for public procurement opportunities.",
+  description:
+    "Bilingual AI procurement analysis for small and medium-sized businesses in Latin America. Análisis bilingüe con IA para PyMEs de Latinoamérica.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body>{children}</body>
     </html>
   );

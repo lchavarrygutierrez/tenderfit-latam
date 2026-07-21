@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { analyzeTender } from "@/lib/api";
 import type {
   Citation,
@@ -10,11 +10,13 @@ import type {
   TenderAnalysis,
 } from "@/lib/types";
 
+type Language = "es" | "en";
+
 const initialProfile: CompanyProfile = {
   company_name: "",
   industry: "",
   products_services: "",
-  location: "Peru",
+  location: "Lima, Perú",
   years_operating: 0,
   previous_contract_experience: "",
   certifications: "",
@@ -23,36 +25,212 @@ const initialProfile: CompanyProfile = {
   employees: null,
 };
 
-function recommendationLabel(value: Recommendation): string {
-  if (value === "APPLY") return "Apply";
-  if (value === "DO_NOT_APPLY") return "Do not apply";
-  return "Review carefully";
+const copy = {
+  es: {
+    languageName: "Español",
+    switchLabel: "Idioma",
+    eyebrow: "NEW YORK CITY · DISEÑADO PARA LATINOAMÉRICA",
+    title: "Descubre si una oportunidad pública vale la pena para tu empresa.",
+    subtitle:
+      "Sube las bases, describe tu empresa y recibe un análisis claro de requisitos, riesgos y compatibilidad, con citas del documento.",
+    companyProfile: "Perfil de la empresa",
+    companyHelp: "Cuéntanos lo esencial para comparar tu PyME con la oportunidad.",
+    companyName: "Nombre de la empresa",
+    companyNamePlaceholder: "Mi Pyme Digital",
+    industry: "Sector",
+    industryPlaceholder: "Tecnología y servicios digitales",
+    productsServices: "Productos y servicios",
+    productsPlaceholder: "Describe qué vende, implementa o entrega tu empresa.",
+    location: "Ubicación",
+    years: "Años de operación",
+    employees: "Número de colaboradores",
+    optional: "Opcional",
+    experience: "Experiencia previa en contratos",
+    experiencePlaceholder:
+      "Incluye proyectos similares, clientes, montos, fechas y resultados.",
+    certifications: "Certificaciones y registros",
+    certificationsPlaceholder:
+      "ISO, registros profesionales, acreditaciones de proveedores o ninguna.",
+    typicalSize: "Monto habitual por proyecto",
+    maximumSize: "Monto máximo que puede asumir",
+    localCurrency: "Moneda local",
+    uploadTitle: "Sube la oportunidad",
+    uploadHelp: "Usa un PDF con texto de hasta 20 MB.",
+    selectPdf: "Selecciona las bases en PDF",
+    browse: "Haz clic para buscar el archivo",
+    analyzing: "Analizando documento…",
+    analyze: "Analizar oportunidad",
+    disclaimer:
+      "Herramienta de apoyo para la toma de decisiones. Verifica siempre las bases oficiales antes de postular.",
+    unexpectedError: "Ocurrió un error inesperado.",
+    emptyTitle: "Tu análisis aparecerá aquí",
+    emptyCopy:
+      "Puntaje de compatibilidad, requisitos, riesgos, lista de tareas y citas por página.",
+    loadingTitle: "Estamos leyendo las bases",
+    loadingCopy:
+      "Extraemos los requisitos y los comparamos con el perfil de tu empresa.",
+    mockBanner:
+      "Modo de prueba: agrega una API key para realizar un análisis real",
+    fit: "COMPATIBILIDAD",
+    estimatedValue: "Valor estimado",
+    deadline: "Fecha límite",
+    pagesAnalyzed: "Páginas analizadas",
+    notIdentified: "No identificado",
+    notIdentifiedFeminine: "No identificada",
+    executiveSummary: "Resumen ejecutivo",
+    warnings: "Alertas del documento",
+    requirements: "Requisitos",
+    mandatory: "Obligatorio",
+    risks: "Riesgos y posibles descalificadores",
+    noRisks: "No se identificaron riesgos explícitos de descalificación.",
+    checklist: "Lista de tareas para postular",
+    source: "Ver fuente",
+    sources: "Ver fuentes",
+    page: "Página",
+    apply: "Postular",
+    review: "Revisar con atención",
+    doNotApply: "No postular",
+    met: "Cumplido",
+    missing: "No cumplido",
+    unclear: "Por confirmar",
+    highRisk: "Riesgo alto",
+    mediumRisk: "Riesgo medio",
+    lowRisk: "Riesgo bajo",
+    highPriority: "Prioridad alta",
+    mediumPriority: "Prioridad media",
+    lowPriority: "Prioridad baja",
+  },
+  en: {
+    languageName: "English",
+    switchLabel: "Language",
+    eyebrow: "NEW YORK CITY · BUILT FOR LATIN AMERICA",
+    title: "Find out whether a public contract is worth pursuing for your business.",
+    subtitle:
+      "Upload the tender documents, describe your company, and receive a clear analysis of requirements, risks, and fit with citations from the source.",
+    companyProfile: "Company profile",
+    companyHelp: "Tell us the essentials so we can compare your SME with the opportunity.",
+    companyName: "Company name",
+    companyNamePlaceholder: "Mi Pyme Digital",
+    industry: "Industry",
+    industryPlaceholder: "Technology and digital services",
+    productsServices: "Products and services",
+    productsPlaceholder: "Describe what your company sells, implements, or delivers.",
+    location: "Location",
+    years: "Years in operation",
+    employees: "Number of employees",
+    optional: "Optional",
+    experience: "Previous contract experience",
+    experiencePlaceholder:
+      "Include similar projects, clients, contract values, dates, and results.",
+    certifications: "Certifications and registrations",
+    certificationsPlaceholder:
+      "ISO certifications, professional registrations, supplier credentials, or none.",
+    typicalSize: "Typical project size",
+    maximumSize: "Maximum project size",
+    localCurrency: "Local currency",
+    uploadTitle: "Upload the opportunity",
+    uploadHelp: "Use a text-based PDF of up to 20 MB.",
+    selectPdf: "Select the tender PDF",
+    browse: "Click to browse for the file",
+    analyzing: "Analyzing document…",
+    analyze: "Analyze opportunity",
+    disclaimer:
+      "Decision-support tool only. Always verify the official tender documents before applying.",
+    unexpectedError: "An unexpected error occurred.",
+    emptyTitle: "Your analysis will appear here",
+    emptyCopy:
+      "Fit score, requirements, risks, application checklist, and page-level citations.",
+    loadingTitle: "We are reading the tender",
+    loadingCopy:
+      "We are extracting the requirements and comparing them with your company profile.",
+    mockBanner: "Mock mode: add an API key to run a real analysis",
+    fit: "FIT SCORE",
+    estimatedValue: "Estimated value",
+    deadline: "Deadline",
+    pagesAnalyzed: "Pages analyzed",
+    notIdentified: "Not identified",
+    notIdentifiedFeminine: "Not identified",
+    executiveSummary: "Executive summary",
+    warnings: "Document warnings",
+    requirements: "Requirements",
+    mandatory: "Mandatory",
+    risks: "Risks and potential disqualifiers",
+    noRisks: "No explicit disqualification risks were identified.",
+    checklist: "Application checklist",
+    source: "View source",
+    sources: "View sources",
+    page: "Page",
+    apply: "Apply",
+    review: "Review carefully",
+    doNotApply: "Do not apply",
+    met: "Met",
+    missing: "Missing",
+    unclear: "Needs confirmation",
+    highRisk: "High risk",
+    mediumRisk: "Medium risk",
+    lowRisk: "Low risk",
+    highPriority: "High priority",
+    mediumPriority: "Medium priority",
+    lowPriority: "Low priority",
+  },
+} as const;
+
+function recommendationLabel(
+  value: Recommendation,
+  language: Language,
+): string {
+  const t = copy[language];
+  if (value === "APPLY") return t.apply;
+  if (value === "DO_NOT_APPLY") return t.doNotApply;
+  return t.review;
 }
 
-function statusLabel(value: RequirementStatus): string {
-  if (value === "MET") return "Met";
-  if (value === "MISSING") return "Missing";
-  return "Unclear";
+function statusLabel(value: RequirementStatus, language: Language): string {
+  const t = copy[language];
+  if (value === "MET") return t.met;
+  if (value === "MISSING") return t.missing;
+  return t.unclear;
 }
 
-function money(value: number | null, currency: string | null): string {
-  if (value === null) return "Not identified";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: currency === "PEN" ? "PEN" : currency || "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+function money(
+  value: number | null,
+  currency: string | null,
+  language: Language,
+): string {
+  if (value === null) return copy[language].notIdentified;
+
+  try {
+    return new Intl.NumberFormat(language === "es" ? "es-419" : "en-US", {
+      style: "currency",
+      currency: currency === "PEN" ? "PEN" : currency || "USD",
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${currency ?? ""} ${value.toLocaleString(
+      language === "es" ? "es-419" : "en-US",
+    )}`.trim();
+  }
 }
 
-function Citations({ citations }: { citations: Citation[] }) {
+function Citations({
+  citations,
+  language,
+}: {
+  citations: Citation[];
+  language: Language;
+}) {
   if (!citations.length) return null;
+  const t = copy[language];
+
   return (
     <details className="citations">
-      <summary>{citations.length === 1 ? "View source" : "View sources"}</summary>
+      <summary>{citations.length === 1 ? t.source : t.sources}</summary>
       <div className="citation-list">
         {citations.map((citation, index) => (
           <blockquote key={`${citation.page}-${index}`}>
-            <strong>Page {citation.page}</strong>
+            <strong>
+              {t.page} {citation.page}
+            </strong>
             <span>“{citation.quote}”</span>
           </blockquote>
         ))}
@@ -62,11 +240,23 @@ function Citations({ citations }: { citations: Citation[] }) {
 }
 
 export default function Home() {
+  const [language, setLanguage] = useState<Language>("es");
   const [profile, setProfile] = useState<CompanyProfile>(initialProfile);
   const [file, setFile] = useState<File | null>(null);
   const [analysis, setAnalysis] = useState<TenderAnalysis | null>(null);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const t = copy[language];
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("tenderfit-language");
+    const detected: Language = navigator.language.toLowerCase().startsWith("es")
+      ? "es"
+      : "en";
+    const nextLanguage: Language = saved === "es" || saved === "en" ? saved : detected;
+    setLanguage(nextLanguage);
+    document.documentElement.lang = nextLanguage;
+  }, []);
 
   const canSubmit = useMemo(
     () =>
@@ -79,6 +269,14 @@ export default function Home() {
       ),
     [profile, file],
   );
+
+  function changeLanguage(nextLanguage: Language) {
+    setLanguage(nextLanguage);
+    setError("");
+    setAnalysis(null);
+    window.localStorage.setItem("tenderfit-language", nextLanguage);
+    document.documentElement.lang = nextLanguage;
+  }
 
   function setText(field: keyof CompanyProfile, value: string) {
     setProfile((current) => ({ ...current, [field]: value }));
@@ -99,9 +297,9 @@ export default function Home() {
     setError("");
     setAnalysis(null);
     try {
-      setAnalysis(await analyzeTender(profile, file));
+      setAnalysis(await analyzeTender(profile, file, language));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Unexpected error.");
+      setError(reason instanceof Error ? reason.message : t.unexpectedError);
     } finally {
       setLoading(false);
     }
@@ -110,12 +308,32 @@ export default function Home() {
   return (
     <main>
       <header className="hero">
-        <div className="brand">TenderFit <span>LATAM</span></div>
-        <p className="eyebrow">PERU MVP</p>
-        <h1>Know whether a public contract is worth pursuing.</h1>
-        <p className="hero-copy">
-          Upload the tender, describe your company, and receive a cited go/no-go report.
-        </p>
+        <div className="hero-top">
+          <div className="brand">
+            TenderFit <span>LATAM</span>
+          </div>
+          <div className="language-switch" aria-label={t.switchLabel}>
+            <button
+              type="button"
+              className={language === "es" ? "active" : ""}
+              aria-pressed={language === "es"}
+              onClick={() => changeLanguage("es")}
+            >
+              ES
+            </button>
+            <button
+              type="button"
+              className={language === "en" ? "active" : ""}
+              aria-pressed={language === "en"}
+              onClick={() => changeLanguage("en")}
+            >
+              EN
+            </button>
+          </div>
+        </div>
+        <p className="eyebrow">{t.eyebrow}</p>
+        <h1>{t.title}</h1>
+        <p className="hero-copy">{t.subtitle}</p>
       </header>
 
       <section className="workspace">
@@ -123,45 +341,45 @@ export default function Home() {
           <div className="section-heading">
             <span>1</span>
             <div>
-              <h2>Company profile</h2>
-              <p>Enough context to compare your business with the tender.</p>
+              <h2>{t.companyProfile}</h2>
+              <p>{t.companyHelp}</p>
             </div>
           </div>
 
           <div className="field-grid">
             <label>
-              Company name
+              {t.companyName}
               <input
                 required
                 value={profile.company_name}
                 onChange={(event) => setText("company_name", event.target.value)}
-                placeholder="Mi Pyme Digital"
+                placeholder={t.companyNamePlaceholder}
               />
             </label>
             <label>
-              Industry
+              {t.industry}
               <input
                 required
                 value={profile.industry}
                 onChange={(event) => setText("industry", event.target.value)}
-                placeholder="Software and digital services"
+                placeholder={t.industryPlaceholder}
               />
             </label>
           </div>
 
           <label>
-            Products and services
+            {t.productsServices}
             <textarea
               required
               value={profile.products_services}
               onChange={(event) => setText("products_services", event.target.value)}
-              placeholder="Describe what the company sells and delivers."
+              placeholder={t.productsPlaceholder}
             />
           </label>
 
           <div className="field-grid three">
             <label>
-              Location
+              {t.location}
               <input
                 required
                 value={profile.location}
@@ -169,7 +387,7 @@ export default function Home() {
               />
             </label>
             <label>
-              Years operating
+              {t.years}
               <input
                 required
                 type="number"
@@ -185,56 +403,56 @@ export default function Home() {
               />
             </label>
             <label>
-              Employees
+              {t.employees}
               <input
                 type="number"
                 min="1"
                 value={profile.employees ?? ""}
                 onChange={(event) => setNumber("employees", event.target.value)}
-                placeholder="Optional"
+                placeholder={t.optional}
               />
             </label>
           </div>
 
           <label>
-            Previous contract experience
+            {t.experience}
             <textarea
               value={profile.previous_contract_experience}
               onChange={(event) =>
                 setText("previous_contract_experience", event.target.value)
               }
-              placeholder="Include similar work, clients, values, dates, and outcomes."
+              placeholder={t.experiencePlaceholder}
             />
           </label>
 
           <label>
-            Certifications
+            {t.certifications}
             <textarea
               value={profile.certifications}
               onChange={(event) => setText("certifications", event.target.value)}
-              placeholder="ISO, professional registrations, vendor credentials, or none."
+              placeholder={t.certificationsPlaceholder}
             />
           </label>
 
           <div className="field-grid">
             <label>
-              Typical project size
+              {t.typicalSize}
               <input
                 type="number"
                 min="0"
                 value={profile.typical_project_size ?? ""}
                 onChange={(event) => setNumber("typical_project_size", event.target.value)}
-                placeholder="PEN"
+                placeholder={t.localCurrency}
               />
             </label>
             <label>
-              Maximum project size
+              {t.maximumSize}
               <input
                 type="number"
                 min="0"
                 value={profile.maximum_project_size ?? ""}
                 onChange={(event) => setNumber("maximum_project_size", event.target.value)}
-                placeholder="PEN"
+                placeholder={t.localCurrency}
               />
             </label>
           </div>
@@ -242,8 +460,8 @@ export default function Home() {
           <div className="section-heading upload-heading">
             <span>2</span>
             <div>
-              <h2>Upload tender</h2>
-              <p>Use a text-based PDF, up to 20 MB.</p>
+              <h2>{t.uploadTitle}</h2>
+              <p>{t.uploadHelp}</p>
             </div>
           </div>
 
@@ -253,17 +471,17 @@ export default function Home() {
               accept="application/pdf,.pdf"
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
-            <strong>{file ? file.name : "Choose a tender PDF"}</strong>
-            <span>{file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "Click to browse"}</span>
+            <strong>{file ? file.name : t.selectPdf}</strong>
+            <span>
+              {file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : t.browse}
+            </span>
           </label>
 
           <button type="submit" disabled={!canSubmit || loading}>
-            {loading ? "Analyzing document…" : "Analyze opportunity"}
+            {loading ? t.analyzing : t.analyze}
           </button>
 
-          <p className="disclaimer">
-            Decision support only. Always verify the official tender documents.
-          </p>
+          <p className="disclaimer">{t.disclaimer}</p>
           {error && <div className="error">{error}</div>}
         </form>
 
@@ -271,32 +489,34 @@ export default function Home() {
           {!analysis && !loading && (
             <div className="empty-state">
               <div className="score-placeholder">—</div>
-              <h2>Your report will appear here</h2>
-              <p>Fit score, requirements, risks, checklist, and page citations.</p>
+              <h2>{t.emptyTitle}</h2>
+              <p>{t.emptyCopy}</p>
             </div>
           )}
 
           {loading && (
             <div className="loading-state">
               <div className="spinner" />
-              <h2>Reading the tender</h2>
-              <p>Extracting requirements and comparing them with the company profile.</p>
+              <h2>{t.loadingTitle}</h2>
+              <p>{t.loadingCopy}</p>
             </div>
           )}
 
           {analysis && (
             <div className="report">
-              {analysis.mock_mode && (
-                <div className="mock-banner">Mock mode — add an API key for real analysis</div>
-              )}
+              {analysis.mock_mode && <div className="mock-banner">{t.mockBanner}</div>}
 
               <div className="report-top">
-                <div className={`score recommendation-${analysis.recommendation.toLowerCase()}`}>
+                <div
+                  className={`score recommendation-${analysis.recommendation.toLowerCase()}`}
+                >
                   <strong>{analysis.fit_score}</strong>
-                  <span>FIT SCORE</span>
+                  <span>{t.fit}</span>
                 </div>
                 <div>
-                  <p className="eyebrow">{recommendationLabel(analysis.recommendation)}</p>
+                  <p className="eyebrow">
+                    {recommendationLabel(analysis.recommendation, language)}
+                  </p>
                   <h2>{analysis.tender_name}</h2>
                   <p>{analysis.entity}</p>
                 </div>
@@ -305,20 +525,34 @@ export default function Home() {
               <p className="recommendation-reason">{analysis.recommendation_reason}</p>
 
               <div className="facts">
-                <div><span>Value</span><strong>{money(analysis.estimated_value, analysis.currency)}</strong></div>
-                <div><span>Deadline</span><strong>{analysis.deadline || "Not identified"}</strong></div>
-                <div><span>Location</span><strong>{analysis.location || "Not identified"}</strong></div>
-                <div><span>Pages analyzed</span><strong>{analysis.pages_analyzed}</strong></div>
+                <div>
+                  <span>{t.estimatedValue}</span>
+                  <strong>
+                    {money(analysis.estimated_value, analysis.currency, language)}
+                  </strong>
+                </div>
+                <div>
+                  <span>{t.deadline}</span>
+                  <strong>{analysis.deadline || t.notIdentifiedFeminine}</strong>
+                </div>
+                <div>
+                  <span>{t.location}</span>
+                  <strong>{analysis.location || t.notIdentifiedFeminine}</strong>
+                </div>
+                <div>
+                  <span>{t.pagesAnalyzed}</span>
+                  <strong>{analysis.pages_analyzed}</strong>
+                </div>
               </div>
 
               <section className="report-section">
-                <h3>Summary</h3>
+                <h3>{t.executiveSummary}</h3>
                 <p>{analysis.summary}</p>
               </section>
 
               {analysis.document_warnings.length > 0 && (
                 <section className="report-section warnings">
-                  <h3>Document warnings</h3>
+                  <h3>{t.warnings}</h3>
                   {analysis.document_warnings.map((warning) => (
                     <p key={warning}>{warning}</p>
                   ))}
@@ -326,53 +560,63 @@ export default function Home() {
               )}
 
               <section className="report-section">
-                <h3>Requirements</h3>
+                <h3>{t.requirements}</h3>
                 <div className="stack">
                   {analysis.requirements.map((item, index) => (
                     <article className="result-card" key={`${item.requirement}-${index}`}>
                       <div className="result-card-header">
                         <span className={`status status-${item.status.toLowerCase()}`}>
-                          {statusLabel(item.status)}
+                          {statusLabel(item.status, language)}
                         </span>
-                        {item.mandatory && <span className="mandatory">Mandatory</span>}
+                        {item.mandatory && <span className="mandatory">{t.mandatory}</span>}
                       </div>
                       <h4>{item.requirement}</h4>
                       <p>{item.reason}</p>
-                      <Citations citations={item.citations} />
+                      <Citations citations={item.citations} language={language} />
                     </article>
                   ))}
                 </div>
               </section>
 
               <section className="report-section">
-                <h3>Risks</h3>
+                <h3>{t.risks}</h3>
                 <div className="stack">
                   {analysis.risks.length ? (
                     analysis.risks.map((risk, index) => (
                       <article className="result-card" key={`${risk.risk}-${index}`}>
                         <span className={`severity severity-${risk.severity}`}>
-                          {risk.severity} risk
+                          {risk.severity === "high"
+                            ? t.highRisk
+                            : risk.severity === "medium"
+                              ? t.mediumRisk
+                              : t.lowRisk}
                         </span>
                         <h4>{risk.risk}</h4>
-                        <Citations citations={risk.citations} />
+                        <Citations citations={risk.citations} language={language} />
                       </article>
                     ))
                   ) : (
-                    <p>No explicit disqualification risks were extracted.</p>
+                    <p>{t.noRisks}</p>
                   )}
                 </div>
               </section>
 
               <section className="report-section">
-                <h3>Application checklist</h3>
+                <h3>{t.checklist}</h3>
                 <div className="stack">
                   {analysis.checklist.map((item, index) => (
                     <article className="check-item" key={`${item.item}-${index}`}>
                       <span className="checkbox" />
                       <div>
                         <strong>{item.item}</strong>
-                        <small>{item.priority} priority</small>
-                        <Citations citations={item.citations} />
+                        <small>
+                          {item.priority === "high"
+                            ? t.highPriority
+                            : item.priority === "medium"
+                              ? t.mediumPriority
+                              : t.lowPriority}
+                        </small>
+                        <Citations citations={item.citations} language={language} />
                       </div>
                     </article>
                   ))}

@@ -31,6 +31,11 @@ main { min-height: 100vh; padding: 42px 24px 80px; }
 .hero { max-width: 1180px; margin: 0 auto 32px; }
 .brand { font-size: 20px; font-weight: 800; letter-spacing: -0.04em; }
 .brand span { color: var(--accent); }
+.hero-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.language-switch { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, 0.78); }
+.language-switch button { width: auto; min-width: 42px; padding: 8px 11px; border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; letter-spacing: 0.06em; }
+.language-switch button:hover:not(:disabled) { transform: none; }
+.language-switch button.active { background: var(--ink); color: #fff; }
 .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; margin: 28px 0 8px; }
 .hero h1 { max-width: 780px; font-size: clamp(38px, 6vw, 70px); line-height: 0.98; letter-spacing: -0.06em; margin: 0; }
 .hero-copy { max-width: 610px; color: var(--muted); font-size: 19px; line-height: 1.5; }
